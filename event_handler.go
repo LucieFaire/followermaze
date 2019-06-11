@@ -6,7 +6,6 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 const (
@@ -21,19 +20,18 @@ const (
 
 type event struct {
 	seqId int
-	eType int
+	eType uint
 	from  int
 	to    int
-	msg string
+	msg   string
 }
 
 type EventHandler struct {
 	conn net.Conn
-	events sync.Map
 }
 
 func InitEventHandler(conn net.Conn) *EventHandler {
-	return &EventHandler{conn, sync.Map{}}
+	return &EventHandler{conn}
 }
 
 func (h *EventHandler) read() {
@@ -44,19 +42,14 @@ func (h *EventHandler) read() {
 			log.Fatalf("Could not read event: %s", err)
 			return
 		}
-		h.processInput(in)
-		go h.sendEvents()
+		go processInput(in)
 	}
 }
 
-func (h *EventHandler) sendEvents() {
-
-}
-
-func (h *EventHandler) processInput(s string) {
+func processInput(s string) {
 	params := strings.Split(s, payloadDelimiter)
 	if len(params) < 2 {
-		log.Fatalf("Error while parsing the input: wrong format")
+		log.Fatalf("Error while parsing the input: wrong format\n")
 		return
 	}
 
@@ -67,25 +60,25 @@ func (h *EventHandler) processInput(s string) {
 	switch params[1] {
 	case "F":
 		e.eType = Follow
-		setToFrom(e, params)
+		setFromTo(e, params)
 	case "U":
 		e.eType = Unfollow
-		setToFrom(e, params)
+		setFromTo(e, params)
 	case "B":
 		e.eType = Broadcast
 	case "P":
 		e.eType = PrivateMessage
-		setToFrom(e, params)
+		setFromTo(e, params)
 	case "S":
 		e.eType = StatusUpdate
 		e.from, _ = strconv.Atoi(params[2])
 	default:
-
+		log.Fatal("Unknown event type, could not parse the input\n")
 	}
-	h.events.Store(e.seqId, e)
+	events.Store(e.seqId, e)
 }
 
-func setToFrom(e *event, params []string) {
+func setFromTo(e *event, params []string) {
 	e.from, _ = strconv.Atoi(params[2])
 	e.to, _ = strconv.Atoi(params[3])
 }

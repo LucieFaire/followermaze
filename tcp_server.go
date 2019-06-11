@@ -50,8 +50,20 @@ func AcceptClients(l net.Listener) {
 			return
 		}
 		go Setup(conn)
-
 	}
+}
+
+func AcceptEventSource(l net.Listener) {
+	conn, e := l.Accept()
+	defer conn.Close()
+
+	if e != nil {
+		log.Printf("Failed to accept an event source connection with error: %s", e.Error())
+		return
+	}
+
+	handler := InitEventHandler(conn)
+	handler.read()
 }
 
 func GracefullyClose(s *Server) {
