@@ -5,21 +5,22 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 )
 
+/* handler per each client connection */
 type ClientHandler struct {
-	id     int
-	conn   net.Conn
-	io     *sync.Mutex
-	writer *bufio.Writer
-	fMap   FollowMap
+	id    int
+	conn  net.Conn
+	mutex *sync.Mutex
 }
 
 func initClientHandler(conn net.Conn) *ClientHandler {
-	return &ClientHandler{nil, conn, &sync.Mutex{}, nil, initFollowers()}
+	return &ClientHandler{-1, conn, &sync.Mutex{}}
 }
 
+/* go routine with client setup and management */
 func Setup(conn net.Conn) {
 	handler := initClientHandler(conn)
 
@@ -29,92 +30,31 @@ func Setup(conn net.Conn) {
 	handler.read()
 }
 
+/* writes to the client connection */
 func (h *ClientHandler) Write(e *event) {
-	_, err := h.writer.WriteString(e.msg)
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+	_, err := h.conn.Write([]byte(e.msg))
 	if err != nil {
-		log.Panicf("Could not send a message to a client: %s", err.Error())
+		log.Printf("Could not send a message to a client: %s\n", err.Error())
 	}
 }
 
+/* reads the client id and checks the connection is open */
 func (h *ClientHandler) read() {
 	reader := bufio.NewReader(h.conn)
 	for {
 		in, err := reader.ReadString(lineDelimiter)
 		if err != nil {
-			log.Fatalf("Could not read client's input: %s", err)
+			log.Printf("No input: %s\n", err)
 			return
 		}
-		id, err := strconv.Atoi(in)
+		id, err := strconv.Atoi(strings.TrimRight(in, string(lineDelimiter)))
 		if err != nil {
-			log.Fatalf("Could not extract the client id: %s", err)
+			log.Printf("Could not extract the client id: %s\n", err)
 			return
 		}
 		h.id = id
-		h.writer = bufio.NewWriter(h.conn)
-		clients.Store(h.id, h)
+		clients.Put(h)
 	}
-}
-
-func (h *ClientHandler) Follow(e *event) {
-	if v, ok := clients.Load(e.from); ok {
-		h := v.(*ClientHandler)
-		h.fMap.Put(h)
-		h.Write(e)
-	}
-}
-
-func (h *ClientHandler) UnFollow(e *event) {
-	h.fMap.Delete(e.from)
-
-}
-
-func (h *ClientHandler) UpdateSt(e *event) {
-	for _, f := range h.fMap.followers {
-		f.Write(e)
-	}
-}
-
-/* synchronized map with fMap */
-type FollowMap struct {
-	followers map[int]*ClientHandler
-	m         sync.RWMutex
-}
-
-func initFollowers() FollowMap {
-	return FollowMap{
-		make(map[int]*ClientHandler),
-		sync.RWMutex{},
-	}
-}
-
-func (f *FollowMap) Put(h *ClientHandler) {
-	f.m.Lock()
-	defer f.m.Unlock()
-
-	f.followers[h.id] = h
-}
-
-func (f *FollowMap) Get(id int) *ClientHandler {
-	f.m.RLock()
-	defer f.m.RUnlock()
-
-	if h, ok := f.followers[id]; ok {
-		return h
-	}
-	return nil
-}
-
-func (f *FollowMap) Delete(id int) {
-	f.m.Lock()
-	defer f.m.Unlock()
-
-	delete(f.followers, id)
-}
-
-func (f *FollowMap) Contains(id int) bool {
-	f.m.RLock()
-	defer f.m.RUnlock()
-
-	_, ok := f.followers[id]
-	return ok
 }

@@ -1,13 +1,13 @@
 package main
 
 import (
-	"github.com/labstack/gommon/log"
+	"log"
 	"net"
 )
 
 const (
-	clientAddr = "9099"
-	eventAddr  = "9090"
+	clientAddr = ":9099"
+	eventAddr  = ":9090"
 )
 
 /* Server structure with multiple listeners for clients and events and priority queue for incoming events */
@@ -39,34 +39,87 @@ func Start() (*Server, error) {
 	return &Server{clientListener, eventListener, Done}, nil
 }
 
-type Handler func()
-
 /* Processes the incoming connection from client */
 func AcceptClients(l net.Listener) {
 	for {
 		conn, e := l.Accept()
 		if e != nil {
-			log.Printf("Failed to accept a client connection with error: %s", e.Error())
+			log.Printf("Failed to accept a client connection with error: %s\n", e.Error())
 			return
 		}
 		go Setup(conn)
 	}
 }
 
+/* Processes the event source connection */
 func AcceptEventSource(l net.Listener) {
 	conn, e := l.Accept()
+
+	defer signal()
+	defer l.Close()
 	defer conn.Close()
 
 	if e != nil {
-		log.Printf("Failed to accept an event source connection with error: %s", e.Error())
+		log.Printf("Failed to accept an event source connection with error: %s\n", e.Error())
 		return
 	}
-
 	handler := InitEventHandler(conn)
 	handler.read()
 }
 
-func GracefullyClose(s *Server) {
-	log.Fatal("Exiting...")
-	close(s.Done)
+/* signals to stop the server */
+func signal() {
+	noEvents = true
+}
+
+/* handles events according to the type */
+func handleEvent(e *event) {
+	switch e.eType {
+	case Follow:
+		follow(e)
+	case Unfollow:
+		unFollow(e)
+	case Broadcast:
+		clients.Range(func(h *ClientHandler) {
+			h.Write(e)
+		})
+	case PrivateMessage:
+		if h, ok := clients.Get(e.to); ok {
+			h.Write(e)
+		}
+	case StatusUpdate:
+		updateStatus(e)
+	default:
+		log.Fatalf("Could not recognize event type %v", e.eType)
+	}
+}
+
+/* Logic for status update event */
+func updateStatus(e *event) {
+	fMap := followers[e.from]
+	for _, f := range fMap {
+		if h, ok := clients.Get(f); ok {
+			h.Write(e)
+		}
+	}
+}
+
+/* Logic for follow event */
+func follow(e *event) {
+	fMap, ok := followers[e.to]
+	if !ok {
+		fMap = make(map[int]int)
+	}
+	fMap[e.from] = e.from
+	followers[e.to] = fMap
+	if h, ok := clients.Get(e.to); ok {
+		h.Write(e)
+	}
+}
+
+/* Logic for unfollow event */
+func unFollow(e *event) {
+	if fMap, ok := followers[e.to]; ok {
+		delete(fMap, e.from)
+	}
 }

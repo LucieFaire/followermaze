@@ -1,26 +1,28 @@
 package main
 
 import (
-	"github.com/labstack/gommon/log"
+	"log"
 	"net"
 	"os"
-	"sync"
 )
 
+/* global vars */
 var (
-	// init the event map
-	events  = make(map[int]*event)
-	clients = sync.Map{}
-	seqNum  = 1
+	events    = initEvents()
+	clients   = initClients()
+	followers = make(map[int]map[int]int)
+	seqNum    = 1
+	noEvents  = false
 )
 
 func main() {
 
 	/* start the server */
 	server, e := Start()
+	log.Printf("Server started...\n")
 
 	if e != nil {
-		GracefullyClose(server)
+		close(server.Done)
 		os.Exit(1)
 	}
 
@@ -29,12 +31,13 @@ func main() {
 	go run(server.clientListener, server.Done, AcceptClients)
 
 	/* start sending */
-	go sendMessages(server.Done)
+	sendMessages(server.Done)
 
 }
 
 type acceptFunc func(l net.Listener)
 
+/* runner for listeners */
 func run(l net.Listener, done chan struct{}, f acceptFunc) {
 	for {
 		go f(l)
@@ -47,49 +50,16 @@ func run(l net.Listener, done chan struct{}, f acceptFunc) {
 	}
 }
 
+/* sends events in ascending order */
 func sendMessages(done chan struct{}) {
 	for {
-		if seqNum == 10000000 {
+		if noEvents && events.isEmpty() {
 			close(done)
-		} else if e, ok := events[seqNum]; ok {
-			delete(events, seqNum)
+			return
+		} else if e, ok := events.Get(seqNum); ok {
+			events.Delete(seqNum)
 			handleEvent(e)
 			seqNum++
-		} else {
-			break
 		}
-	}
-}
-
-func handleEvent(e *event) {
-	switch e.eType {
-	case Follow:
-		if v, ok := clients.Load(e.to); ok {
-			h := v.(*ClientHandler)
-			h.Follow(e)
-		}
-	case Unfollow:
-		if v, ok := clients.Load(e.to); ok {
-			h := v.(*ClientHandler)
-			h.UnFollow(e)
-		}
-	case Broadcast:
-		clients.Range(func(_, v interface{}) bool {
-			h := v.(*ClientHandler)
-			go h.Write(e)
-			return true
-		})
-	case PrivateMessage:
-		if v, ok := clients.Load(e.to); ok {
-			h := v.(*ClientHandler)
-			h.Write(e)
-		}
-	case StatusUpdate:
-		if v, ok := clients.Load(e.to); ok {
-			h := v.(*ClientHandler)
-			h.UpdateSt(e)
-		}
-	default:
-		log.Fatalf("Could not recognize event type %v", e.eType)
 	}
 }

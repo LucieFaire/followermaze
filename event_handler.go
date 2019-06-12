@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"github.com/labstack/gommon/log"
+	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -18,6 +18,7 @@ const (
 	StatusUpdate
 )
 
+/* parsed events */
 type event struct {
 	seqId int
 	eType uint
@@ -26,6 +27,7 @@ type event struct {
 	msg   string
 }
 
+/* handler of event source connection */
 type EventHandler struct {
 	conn net.Conn
 }
@@ -34,22 +36,24 @@ func InitEventHandler(conn net.Conn) *EventHandler {
 	return &EventHandler{conn}
 }
 
+/* reads incoming events */
 func (h *EventHandler) read() {
 	reader := bufio.NewReader(h.conn)
 	for {
 		in, err := reader.ReadString(lineDelimiter)
 		if err != nil {
-			log.Fatalf("Could not read event: %s", err)
+			log.Printf("No more events: %s\n", err)
 			return
 		}
 		go processInput(in)
 	}
 }
 
+/* parses the events */
 func processInput(s string) {
-	params := strings.Split(s, payloadDelimiter)
+	params := strings.Split(strings.TrimRight(s, string(lineDelimiter)), payloadDelimiter)
 	if len(params) < 2 {
-		log.Fatalf("Error while parsing the input: wrong format\n")
+		log.Print("Error while parsing the input: wrong format\n")
 		return
 	}
 
@@ -75,7 +79,7 @@ func processInput(s string) {
 	default:
 		log.Fatal("Unknown event type, could not parse the input\n")
 	}
-	events.Store(e.seqId, e)
+	events.Put(e)
 }
 
 func setFromTo(e *event, params []string) {
