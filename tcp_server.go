@@ -90,7 +90,7 @@ func handleEvent(e *event) {
 	case StatusUpdate:
 		updateStatus(e)
 	default:
-		log.Fatalf("Could not recognize event type %v", e.eType)
+		log.Panicf("Could not recognize event type %v", e.eType)
 	}
 }
 

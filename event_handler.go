@@ -77,7 +77,7 @@ func processInput(s string) {
 		e.eType = StatusUpdate
 		e.from, _ = strconv.Atoi(params[2])
 	default:
-		log.Fatal("Unknown event type, could not parse the input\n")
+		log.Printf("Unknown event type, could not parse the input\n")
 	}
 	events.Put(e)
 }

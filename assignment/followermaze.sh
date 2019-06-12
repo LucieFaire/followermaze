@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-#export totalEvents=10000
+#export totalEvents=1000
 
-export logLevel="debug"
+#export logLevel="debug"
 
 #export concurrencyLevel=50
 
