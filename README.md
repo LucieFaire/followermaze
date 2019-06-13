@@ -4,7 +4,8 @@ Soundcloud Challenge: **Follower Maze**
 
 **Requirements**
  - golang version >=1.12
- - working gopath ($GOPATH/bin has to be setup in $PATH)
+ - working gopath (``$GOPATH/bin`` has to be setup in ``$PATH``)
+ - project directory ``/followermaze`` placed in ``go/src``
 
 **To Run**
  
