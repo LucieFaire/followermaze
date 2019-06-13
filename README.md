@@ -19,3 +19,5 @@ or
  
  - run a command ``go test followermaze``
  
+ Test suite is incomplete at the moment and checks partial logic.
+ 
