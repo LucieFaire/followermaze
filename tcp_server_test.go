@@ -7,6 +7,16 @@ import (
 	"testing"
 )
 
+func TestCorrect_Start(t *testing.T) {
+	server, _ := Start()
+	defer server.Stop()
+	_, e1 := net.Dial("tcp", ":9090")
+	_, e2 := net.Dial("tcp", ":9099")
+
+	assert.Nil(t, e1)
+	assert.Nil(t, e2)
+}
+
 func TestCorrect_InitialFollow(t *testing.T) {
 	fakeHandler()
 	e := &event{666, Follow, 60, 50, "666|F|60|50\n"}

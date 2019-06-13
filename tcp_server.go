@@ -39,6 +39,11 @@ func Start() (*Server, error) {
 	return &Server{clientListener, eventListener, Done}, nil
 }
 
+func (s *Server) Stop() {
+	s.eventListener.Close()
+	s.clientListener.Close()
+}
+
 /* Processes the incoming connection from client */
 func AcceptClients(l net.Listener) {
 	for {

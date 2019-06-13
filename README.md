@@ -15,4 +15,7 @@ or
  - a command ``go build followermaze``. 
  The runnable binary will be generated ``./followermaze.exe`` and can be called.
  
+ **To Test**
+ 
+ - run a command ``go test followermaze``
  
