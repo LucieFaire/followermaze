@@ -54,6 +54,7 @@ func run(l net.Listener, done chan struct{}, f acceptFunc) {
 func sendMessages(done chan struct{}) {
 	for {
 		if noEvents && events.isEmpty() {
+			flushAll()
 			close(done)
 			return
 		} else if e, ok := events.Get(seqNum); ok {

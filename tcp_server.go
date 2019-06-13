@@ -128,3 +128,10 @@ func unFollow(e *event) {
 		delete(fMap, e.from)
 	}
 }
+
+/* flushes all buffered msg */
+func flushAll() {
+	clients.Range(func(h *ClientHandler) {
+		h.Flush()
+	})
+}

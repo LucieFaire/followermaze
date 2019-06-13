@@ -58,7 +58,7 @@ func TestCorrect_Unfollow(t *testing.T) {
 
 func fakeHandler() {
 	conn, _ := net.Pipe()
-	handler := &ClientHandler{-1, conn, &sync.Mutex{}}
+	handler := &ClientHandler{-1, conn, &sync.Mutex{}, nil}
 
 	clients.Put(handler)
 }

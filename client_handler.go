@@ -11,13 +11,14 @@ import (
 
 /* handler per each client connection */
 type ClientHandler struct {
-	id    int
-	conn  net.Conn
-	mutex *sync.Mutex
+	id     int
+	conn   net.Conn
+	mutex  *sync.Mutex
+	writer *bufio.Writer
 }
 
 func initClientHandler(conn net.Conn) *ClientHandler {
-	return &ClientHandler{-1, conn, &sync.Mutex{}}
+	return &ClientHandler{-1, conn, &sync.Mutex{}, nil}
 }
 
 /* go routine with client setup and management */
@@ -34,11 +35,13 @@ func Setup(conn net.Conn) {
 func (h *ClientHandler) Write(e *event) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
-	_, err := h.conn.Write([]byte(e.msg))
+	_, err := h.writer.WriteString(e.msg)
 	if err != nil {
 		log.Printf("Could not send a message to a client: %s\n", err.Error())
 	}
 }
+
+const buffSize = 2048
 
 /* reads the client id and checks the connection is open */
 func (h *ClientHandler) read() {
@@ -55,6 +58,11 @@ func (h *ClientHandler) read() {
 			return
 		}
 		h.id = id
+		h.writer = bufio.NewWriterSize(h.conn, buffSize)
 		clients.Put(h)
 	}
+}
+
+func (h *ClientHandler) Flush() {
+	_ = h.writer.Flush()
 }
